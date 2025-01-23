@@ -11,7 +11,7 @@ unsigned int S = 20; // Número de muescas que tiene el disco del encoder.
 const int wheel_diameter = 64; // Diámetro de la rueda pequeña [mm]
 float velocity = 0; // Velocity // Velocidad en [Km/h]
 unsigned long last_interrupt_time = 0;  // Para manejar el debounce
-unsigned long debounce_delay = 10; // Ajustado a 10 ms para mejorar el filtro de rebote
+unsigned long debounce_delay = 1; // Ajustado a 10 ms para mejorar el filtro de rebote
 
 // Función de interrupción para contar los pulsos del encoder
 void counter() {
