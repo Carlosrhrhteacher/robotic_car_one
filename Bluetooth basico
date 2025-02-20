@@ -1,0 +1,110 @@
+#include <SoftwareSerial.h>
+
+// Motor 1
+int ENA = 13;  // Usamos un pin PWM para velocidad del motor A
+int ENB = 12;  // Usamos un pin PWM para velocidad del motor B
+int IN1 = 11;
+int IN2 = 10;
+int IN3 = 3;  // Este pin también es PWM si lo necesitas
+int IN4 = 5;  // Este pin también es PWM si lo necesitas
+
+int velocidad = 50;
+
+SoftwareSerial BT(7, 8); // TX, RX (módulo Bluetooth)
+
+// Configuración de pines y comunicación
+void setup() {
+  Serial.begin(9600);
+  BT.begin(9600);
+
+  // Definición de pines como salidas
+  pinMode(ENA, OUTPUT);  
+  pinMode(ENB, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+}
+
+void loop() {
+  if (BT.available()) {
+    char dato = BT.read();
+    Serial.println(dato);
+    switch (dato) {
+      case 'w':  // Avanzar
+        Adelante();
+        Serial.println("w");
+        break;
+      case 'x':  // Retroceder
+        Atras();
+        Serial.println("atras");
+        break;
+      case 'd':  // Girar a la derecha (motor)
+        Derecha();
+        break;
+      case 'a':  // Girar a la izquierda (motor)
+        Izquierda();
+        break;
+      case '0':  // Parar
+        Parar();
+        break;
+      case '1':  // Aumentar velocidad
+        velocidad = 100;
+        break;
+      case '5':  // Aumentar velocidad
+        velocidad = 150;
+        break;
+      case '9':  // Aumentar velocidad
+        velocidad = 250;
+        break;
+    }
+  }
+}
+
+void Adelante() {
+  analogWrite(ENA, velocidad);  // Control de velocidad motor A
+  analogWrite(ENB, velocidad);  // Control de velocidad motor B
+  digitalWrite(IN1, 250);
+  digitalWrite(IN2, 0);
+  digitalWrite(IN3, 250);
+  digitalWrite(IN4, 0);
+}
+
+void Atras() {
+  analogWrite(ENA, velocidad);
+  analogWrite(ENB, velocidad);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void Derecha() {
+  // Si deseas hacer una rotación de dirección para girar, puedes usar los motores.
+  analogWrite(ENA, velocidad);
+  analogWrite(ENB, velocidad);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void Izquierda() {
+  // Al girar hacia la izquierda, los motores se deben accionar en dirección contraria.
+  analogWrite(ENA, velocidad);
+  analogWrite(ENB, velocidad);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void Parar() {
+  // Paramos ambos motores
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);  // Apagar motor A
+  analogWrite(ENB, 0);  // Apagar motor B
+}
