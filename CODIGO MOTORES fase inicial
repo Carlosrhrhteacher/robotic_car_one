@@ -1,0 +1,8 @@
+# robotic_car_one
+void loop() {
+  // Control de velocidad de motores usando PWM
+  analogWrite(6, 0);   // Motor 1, sentido 1 apagado
+  analogWrite(5, 150); // Motor 1, sentido 2 velocidad media
+  analogWrite(7, 0);   // Motor 2, sentido 1 apagado
+  analogWrite(8, 150); // Motor 2, sentido 2 velocidad media
+  }
