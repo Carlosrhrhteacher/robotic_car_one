@@ -1,0 +1,85 @@
+// Definimos el pin donde se conecta el encoder
+#define encoder 2
+int encoder_pin = 2; // Pin 2, donde se conecta el encoder
+
+// Variables para cálculo de velocidad y conteo de pulsos
+unsigned int N; // [RPM] Revoluciones por minuto calculadas
+volatile byte n; // [pulses] Número de pulsos leídos por el Arduino
+unsigned long timeold; // Tiempo almacenado para calcular RPM
+unsigned int S = 20; // Número de muescas en el disco del encoder
+const int wheel_diameter = 64; // Diámetro de la rueda [mm]
+float velocity = 0; // Velocidad en [Km/h]
+
+// Variables para manejar el debounce y evitar rebotes en la señal del encoder
+unsigned long last_interrupt_time = 0;
+unsigned long debounce_delay = 1; // Ajustado a 1 ms para filtrar rebotes
+
+// Función de interrupción para contar los pulsos del encoder
+void counter() {
+  unsigned long interrupt_time = millis(); // Captura el tiempo actual
+  // Solo cuenta si ha pasado el tiempo de debounce
+  if (interrupt_time - last_interrupt_time > debounce_delay) {
+    n++;  // Incrementa el contador de pulsos
+    last_interrupt_time = interrupt_time;  // Actualiza el tiempo de la última interrupción
+  }
+}
+
+void setup() {
+  Serial.begin(9600);  // Inicializa la comunicación serie para monitoreo
+  pinMode(encoder_pin, INPUT);  // Configura el pin del encoder como entrada
+  attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);  // Activa la interrupción en el flanco de subida
+
+  // Inicialización de variables
+  n = 0;
+  N = 0;
+  timeold = 0;
+
+  // Mensaje de encabezado en el monitor serie
+  Serial.println("");
+  Serial.print(" Wheel ");
+  Serial.print(" Seconds ");
+  Serial.print("RPM ");
+  Serial.print("Pulses ");
+  Serial.println("Velocity [Km/h]");
+}
+
+void loop() {
+  // Control del motor con señales PWM en pines específicos
+  analogWrite(6, 0);   // Motor 1 apagado en un sentido
+  analogWrite(5, 150); // Motor 1 activado en el otro sentido con velocidad media
+  analogWrite(7, 0);   // Motor 2 apagado en un sentido
+  analogWrite(8, 150); // Motor 2 activado en el otro sentido con velocidad media
+
+  // Verificamos cada segundo (1000 ms) para calcular la velocidad y RPM
+  if (millis() - timeold >= 1000) {  
+    detachInterrupt(digitalPinToInterrupt(encoder_pin));  // Desactivamos la interrupción temporalmente
+
+    // Cálculo de RPM solo si se han detectado pulsos
+    if (n > 0) {  
+      N = (n * 60) / ((millis() - timeold) / 1000 * S);  // RPM = (pulsos * 60) / (tiempo transcurrido en segundos * muescas del encoder)
+      velocity = N * 3.1416 * wheel_diameter * 60 / 1000000;  // Velocidad en Km/h
+    } else {
+      velocity = 0;  // Si no hubo pulsos, la velocidad es 0
+    }
+
+    // Ajustamos valores muy bajos a 0 para evitar errores de medición
+    if (velocity < 0.05) {  
+      velocity = 0;
+    }
+
+    // Envío de datos al monitor serie
+    Serial.print(" ");
+    Serial.print(millis() / 1000); // Tiempo en segundos
+    Serial.print(" ");
+    Serial.print(N, DEC); // Revoluciones por minuto (RPM)
+    Serial.print(" ");
+    Serial.print(n, DEC); // Cantidad de pulsos detectados
+    Serial.print(" ");
+    Serial.println(velocity, 2); // Velocidad en Km/h con 2 decimales
+
+    // Reiniciamos variables para el siguiente cálculo
+    n = 0;  // Reiniciar el conteo de pulsos
+    timeold = millis();  // Actualizar el tiempo de referencia
+    attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);  // Reactivar la interrupción del encoder
+  }
+}
