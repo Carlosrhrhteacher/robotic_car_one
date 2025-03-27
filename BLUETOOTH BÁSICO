@@ -1,0 +1,118 @@
+#include <SoftwareSerial.h>  // Librería para la comunicación serial con el módulo Bluetooth
+
+// Definición de pines para el control del puente H de los motores
+int ENA = 13;  // Pin PWM para controlar la velocidad del motor A
+int ENB = 12;  // Pin PWM para controlar la velocidad del motor B
+int IN1 = 11;  // Pin de dirección para el motor A
+int IN2 = 10;  // Pin de dirección para el motor A
+int IN3 = 3;   // Pin de dirección para el motor B (también puede ser PWM)
+int IN4 = 5;   // Pin de dirección para el motor B (también puede ser PWM)
+
+int velocidad = 50;  // Valor inicial de la velocidad de los motores
+
+// Creación de un objeto SoftwareSerial para comunicación Bluetooth
+SoftwareSerial BT(7, 8); // TX, RX (para el módulo Bluetooth)
+
+// Configuración de pines y comunicación serie
+void setup() {
+  Serial.begin(9600);  // Inicialización de la comunicación serie con el monitor serial
+  BT.begin(9600);      // Inicialización de la comunicación Bluetooth
+
+  // Configuración de pines como salidas para controlar los motores
+  pinMode(ENA, OUTPUT);  
+  pinMode(ENB, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+}
+
+void loop() {
+  // Verificamos si hay datos disponibles desde el módulo Bluetooth
+  if (BT.available()) {
+    char dato = BT.read();  // Leemos el carácter recibido
+    Serial.println(dato);   // Mostramos el carácter en el monitor serial
+
+    // Evaluamos el carácter recibido para determinar la acción a realizar
+    switch (dato) {
+      case 'w':  // Comando para avanzar
+        Adelante();
+        Serial.println("w");
+        break;
+      case 'x':  // Comando para retroceder
+        Atras();
+        Serial.println("atras");
+        break;
+      case 'd':  // Comando para girar a la derecha
+        Derecha();
+        break;
+      case 'a':  // Comando para girar a la izquierda
+        Izquierda();
+        break;
+      case '0':  // Comando para detener el movimiento
+        Parar();
+        break;
+      case '1':  // Comando para aumentar la velocidad a 100
+        velocidad = 100;
+        break;
+      case '5':  // Comando para aumentar la velocidad a 150
+        velocidad = 150;
+        break;
+      case '9':  // Comando para aumentar la velocidad a 250
+        velocidad = 250;
+        break;
+    }
+  }
+}
+
+// Función para mover el robot hacia adelante
+void Adelante() {
+  analogWrite(ENA, velocidad);  // Aplicar PWM para controlar la velocidad del motor A
+  analogWrite(ENB, velocidad);  // Aplicar PWM para controlar la velocidad del motor B
+  digitalWrite(IN1, 250);  // Configurar motor A para moverse en un sentido
+  digitalWrite(IN2, 0);
+  digitalWrite(IN3, 250);  // Configurar motor B para moverse en el mismo sentido
+  digitalWrite(IN4, 0);
+}
+
+// Función para mover el robot hacia atrás
+void Atras() {
+  analogWrite(ENA, velocidad);  // Aplicar PWM a los motores
+  analogWrite(ENB, velocidad);
+  digitalWrite(IN1, LOW);  // Configurar motores en dirección opuesta a Adelante()
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+// Función para girar a la derecha
+void Derecha() {
+  // Configuración de los motores para girar a la derecha
+  analogWrite(ENA, velocidad);
+  analogWrite(ENB, velocidad);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+// Función para girar a la izquierda
+void Izquierda() {
+  // Configuración de los motores para girar a la izquierda
+  analogWrite(ENA, velocidad);
+  analogWrite(ENB, velocidad);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+// Función para detener los motores
+void Parar() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);  // Detener el motor A
+  analogWrite(ENB, 0);  // Detener el motor B
+}
