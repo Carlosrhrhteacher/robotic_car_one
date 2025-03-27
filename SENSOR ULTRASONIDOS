@@ -1,0 +1,46 @@
+// Definimos los pines del sensor ultrasónico HC-SR04
+const int sensorTrig = 12;  // Pin para el Trigger (emisor de la señal ultrasónica)
+const int sensorEcho = 13;  // Pin para el Echo (receptor de la señal reflejada)
+
+void setup() {
+  // Inicializamos la comunicación serial para mostrar datos en el monitor serie
+  Serial.begin(9600);
+
+  // Configuramos los pines del sensor ultrasónico
+  pinMode(sensorTrig, OUTPUT);  // El pin Trigger se configura como salida
+  pinMode(sensorEcho, INPUT);   // El pin Echo se configura como entrada
+
+  // Aseguramos que el Trigger comience en LOW para evitar señales erróneas
+  digitalWrite(sensorTrig, LOW);
+}
+
+void loop() {
+  long t;  // Variable para almacenar el tiempo de viaje del pulso (en microsegundos)
+  long d;  // Variable para almacenar la distancia medida en centímetros
+
+  // Enviamos un pulso ultrasónico de 10 microsegundos
+  digitalWrite(sensorTrig, HIGH);  
+  delayMicroseconds(10);  // Mantenemos el pulso activo durante 10us
+  digitalWrite(sensorTrig, LOW);   // Apagamos el pulso
+
+  // Medimos el tiempo que tarda el eco en regresar
+  t = pulseIn(sensorEcho, HIGH);  // La función pulseIn mide el tiempo del pulso en HIGH
+
+  // Convertimos el tiempo en distancia en centímetros
+  // El factor 59 proviene de la velocidad del sonido (343m/s), ajustado a microsegundos y cm
+  d = t / 59;  
+
+  // Si la distancia es mayor a 20 cm, no se ejecuta ninguna acción
+  if (d > 20) {
+    // Aquí podrías agregar una acción, como encender un LED o activar un motor
+  }
+
+  // Imprimimos la distancia medida en el monitor serie
+  Serial.print("Distancia: ");
+  Serial.print(d);  // Mostramos la distancia en cm
+  Serial.print(" cm");
+  Serial.println();
+
+  // Esperamos 100ms antes de realizar otra medición
+  delay(100);
+}
