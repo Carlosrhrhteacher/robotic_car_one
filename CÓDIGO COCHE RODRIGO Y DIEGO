@@ -1,0 +1,166 @@
+#include <Servo.h>
+#include <SoftwareSerial.h>
+ 
+// Pines de control
+const int IN1 = 5;
+const int IN2 = 6;
+const int trigPin = 10;
+const int echoPin = 11;
+const int buzzerPin = 12;  // Pin del buzzer
+const int servoPin = 9;
+ 
+// Configuración de SoftwareSerial para Bluetooth (usando pines 2 y 3)
+SoftwareSerial BTserial(2, 3);  // RX, TX
+ 
+// Servo y distancia
+Servo servoMotor;
+long duration;
+int distance;
+ 
+// Ángulos del servo
+const int anguloCentro = 90;
+const int anguloIzquierda = anguloCentro - 30; // 60°
+const int anguloDerecha = anguloCentro + 30;   // 120°
+ 
+// Variables de control de velocidad
+int velocidad = 10; // Velocidad inicial muy baja
+const int velocidadMinima = 10; // Velocidad mínima ajustada a un valor bajo
+const int velocidadMaxima = 255; // Velocidad máxima
+ 
+// Variables de control de giro
+int estadoGiro = 0;  // 0 = sin giro, 1 = girando izquierda, 2 = girando derecha
+ 
+void setup() {
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(buzzerPin, OUTPUT);  // Configurar el pin del buzzer como salida
+  servoMotor.attach(servoPin);
+  moverServo(anguloCentro);  // Centrar servo al iniciar
+ 
+  Serial.begin(9600);  // Iniciar comunicación serial con el PC
+  BTserial.begin(9600); // Iniciar comunicación con Bluetooth (HC-05)
+ 
+  Serial.println("Comandos por Bluetooth y PC: W (adelante), S (atrás), A (izquierda), D (derecha), E (aumentar velocidad), Q (disminuir velocidad), P (pitido), M (parar pitido)");
+  Serial.println("Bluetooth control iniciado. Conecte con HC-05.");
+}
+ 
+void loop() {
+  // Medir la distancia
+  distance = medirDistancia();
+ 
+  // Enviar la distancia por Bluetooth (para ver en el móvil)
+  Serial.print("Distancia: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+ 
+  // Si la distancia es menor o igual a 10 cm, frenar el coche y emitir pitido grave
+  if (distance <= 10) {
+    // Frenar el coche
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    // Emitir un pitido grave
+    tone(buzzerPin, 500);  // Pitido grave a 500 Hz
+    Serial.println("¡Obstáculo detectado! Pitido grave y frenando...");
+  } else {
+    // Si no hay obstáculo, detener el pitido
+    noTone(buzzerPin);
+  }
+ 
+  // Control manual por Bluetooth desde el móvil
+  if (BTserial.available()) {  // Si hay datos disponibles desde el Bluetooth
+    char comando = tolower(BTserial.read());  // Leer el comando y convertirlo a minúsculas
+    Serial.print("Comando recibido desde el móvil: ");
+    Serial.println(comando);  // Depuración: Mostrar comando recibido
+    ejecutarComando(comando);
+  }
+ 
+  // Si estamos girando a la izquierda o derecha, mover el servo
+  if (estadoGiro == 1) {
+    moverServo(anguloIzquierda);  // Girar servo a la izquierda
+  } else if (estadoGiro == 2) {
+    moverServo(anguloDerecha);  // Girar servo a la derecha
+  }
+ 
+  delay(100); // Pausa breve para evitar lecturas demasiado rápidas
+}
+ 
+// Función para medir distancia con el sensor ultrasónico
+int medirDistancia() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  return duration * 0.034 / 2;
+}
+ 
+// Función para mover el servo solo si es necesario
+void moverServo(int angulo) {
+  servoMotor.write(angulo);
+}
+ 
+// Función para ejecutar el comando recibido
+void ejecutarComando(char comando) {
+  switch (comando) {
+    case 'w': // Avanzar
+      digitalWrite(IN1, HIGH);
+      digitalWrite(IN2, LOW);
+      analogWrite(IN1, velocidad); // Aplicar velocidad al motor
+      Serial.println("Avanzando");
+      break;
+    case 's': // Retroceder
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      analogWrite(IN2, velocidad); // Aplicar velocidad al motor
+      Serial.println("Retrocediendo");
+      break;
+    case 'a': // Girar a la izquierda y avanzar
+      estadoGiro = 1;  // Activar giro a la izquierda
+      digitalWrite(IN1, HIGH);  // Avanzar
+      digitalWrite(IN2, LOW);
+      analogWrite(IN1, velocidad); // Aplicar velocidad al motor
+      Serial.println("Girando a la izquierda y avanzando");
+      break;
+    case 'd': // Girar a la derecha y avanzar
+      estadoGiro = 2;  // Activar giro a la derecha
+      digitalWrite(IN1, HIGH);  // Avanzar
+      digitalWrite(IN2, LOW);
+      analogWrite(IN1, velocidad); // Aplicar velocidad al motor
+      Serial.println("Girando a la derecha y avanzando");
+      break;
+    case 'e': // Aumentar velocidad
+      if (velocidad < velocidadMaxima) {
+        velocidad += 10; // Aumenta la velocidad de 10 en 10 hasta el máximo
+      }
+      Serial.print("Velocidad aumentada a: ");
+      Serial.println(velocidad);
+      break;
+    case 'q': // Disminuir velocidad
+      if (velocidad > velocidadMinima) {
+        velocidad -= 10; // Disminuye la velocidad de 10 en 10 hasta el mínimo
+      }
+      Serial.print("Velocidad reducida a: ");
+      Serial.println(velocidad);
+      break;
+    case 'p': // Hacer el pitido mientras se mantenga presionado
+      tone(buzzerPin, 1000);  // Activar el buzzer (tono a 1000 Hz)
+      Serial.println("Pitido activado");
+      break;
+    case 'm': // Detener el pitido cuando se suelta la tecla
+      noTone(buzzerPin);  // Desactivar el buzzer
+      Serial.println("Pitido desactivado");
+      break;
+    case 'x': // Detener motor y centrar servo
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, LOW);
+      estadoGiro = 0;  // Detener giro
+      moverServo(anguloCentro);
+      Serial.println("Motor detenido");
+      break;
+    default:
+      break;
+  }
+}
