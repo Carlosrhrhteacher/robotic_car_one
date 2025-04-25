@@ -1,0 +1,54 @@
+void Distancia() {
+  if (millis() - timeold >= 1000) {
+    detachInterrupt(digitalPinToInterrupt(encoder_pin));  // Desconectamos la interrupción para evitar interferencias
+
+    unsigned long deltaT = millis() - timeold;  // Tiempo transcurrido en milisegundos
+    float tiempo_segundos = deltaT / 1000.0;
+
+    if (n > 0 && tiempo_segundos > 0 && S > 0) {
+      N = (n * 60.0) / (tiempo_segundos * S);  // Revoluciones por minuto [RPM]
+      velocity = N * 3.1416 * wheel_diameter * 60.0 / 1000000.0 * 3.6;  // Velocidad en m/s
+      distancia = (n * 3.1416 * wheel_diameter) / 20.0;  // Distancia en cm (asumiendo 20 pulsos por vuelta) 
+    } else {
+      velocity = 0;  // Si no hay pulsos o tiempo inválido, la velocidad es 0
+    }
+
+    // Control de motores (ajusta estos valores a tu configuración real)
+    analogWrite(3, 150);  
+    analogWrite(5, 0);    
+    analogWrite(10, 0);
+    analogWrite(11, 150);
+
+    // Impresión de datos por el puerto serie
+    Serial.print("Tiempo (s): ");
+    Serial.print(millis() / 1000);
+    Serial.print(" | RPM: ");
+    Serial.print(N, DEC);
+    Serial.print(" | Pulsos: ");
+    Serial.print(n, DEC);
+    Serial.print(" | Velocidad (km/h): ");
+    Serial.println(velocity, 2);
+
+    // Verificación de distancia alcanzada
+    if (distancia >= target_distancia) {
+      Serial.println("Se alcanzó la distancia. Parando...");
+
+      // Apagar motores
+      analogWrite(3, 0);
+      analogWrite(5, 0);
+      analogWrite(10, 0);
+      analogWrite(11, 0);
+
+      delay(1000);  // Espera un poco antes de reiniciar
+
+      // Reiniciar variables
+      distancia = 0;
+      n = 0;
+    }
+
+    timeold = millis();  // Actualizar el tiempo para el siguiente ciclo
+    attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);  // Vuelve a activar la interrupción
+  }
+}
+
+
