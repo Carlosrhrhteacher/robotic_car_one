@@ -1,0 +1,59 @@
+void angulo(){
+  if (millis() - timeold >= 1000) {
+    detachInterrupt(digitalPinToInterrupt(encoder_pin));
+
+    if (n > 0) {
+      N = (n * 60) / ((millis() - timeold) / 1000 * S);
+      velocity = N * 3.1416 * wheel_diameter * 60 / 1000000 * 3.6;  // km/h
+      distancia += n * 3.1416 * wheel_diameter / 20;  // acumulada en cm
+      
+      // Calcular velocidad angular (rad/s)
+      omega = (2 * (velocity / 3.6)) / W;  // Convertimos velocity a m/s
+
+      // Calcular ángulo girado (cada segundo)
+      angulo_girado += omega * dt;
+    } else {
+      velocity = 0;
+      omega = 0;
+    }
+
+    // Mover motores
+    analogWrite(3, 0);
+    analogWrite(5, 150);
+    analogWrite(10, 0);
+    analogWrite(11, 150);
+
+    // Serial print
+    Serial.print(" ");
+    Serial.print(millis() / 1000);
+    Serial.print(" ");
+    Serial.print(N, DEC);
+    Serial.print(" ");
+    Serial.print(n, DEC);
+    Serial.print(" ");
+    Serial.print(velocity, 2);
+    Serial.print(" ");
+    Serial.print(omega, 4);
+    Serial.print(" ");
+    Serial.println(angulo_girado, 4);
+
+    // Condición para detenerse tras girar 90 grados
+    if (angulo_girado >= target_angulo) {
+      Serial.println("¡Se alcanzó el giro de 90 grados! Deteniendo motores...");
+      analogWrite(3, 0);
+      analogWrite(5, 0);
+      analogWrite(10, 0);
+      analogWrite(11, 0);
+      delay(1000);
+      
+      // Reiniciar si se desea volver a iniciar después de detenerse
+      distancia = 0;
+      angulo_girado = 0;
+      n = 0;
+    }
+
+    timeold = millis();
+    n = 0;
+    attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);
+  }
+}
