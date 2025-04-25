@@ -1,0 +1,103 @@
+#include <math.h>  // Para que PI esté definido correctamente
+
+// --- Constantes y variables globales ---
+const int encoder_pin = 2;               // Pin del encoder
+const float wheel_diameter = 6.5;        // Diámetro de la rueda en cm
+const float W = 14.5;                    // Distancia entre ruedas (ancho del robot) en cm
+const int S = 20;                        // Número de ranuras/pulsos por vuelta
+
+const float dt = 1.0;                    // Intervalo de tiempo en segundos
+const float target_angulo = PI / 2;      // Objetivo: 90 grados en radianes (π/2)
+
+volatile int n = 0;                      // Contador de pulsos del encoder
+unsigned long timeold = 0;               // Tiempo anterior para el cálculo de intervalo
+
+float N = 0;                             // RPM estimadas
+float velocity = 0;                      // Velocidad lineal en km/h
+float distancia = 0;                     // Distancia recorrida acumulada en cm
+float omega = 0;                         // Velocidad angular en rad/s
+float angulo_girado = 0;                 // Ángulo girado en radianes
+
+// --- Interrupción del encoder ---
+void counter() {
+  n++;
+}
+
+// --- Función principal ---
+void angulo_radianes() {
+  if (millis() - timeold >= 1000) {
+    detachInterrupt(digitalPinToInterrupt(encoder_pin));
+
+    if (n > 0) {
+      N = (n * 60.0) / ((millis() - timeold) / 1000.0 * S);
+      velocity = N * 3.1416 * wheel_diameter * 60.0 / 1000000.0 * 3.6;  // km/h
+      distancia += n * 3.1416 * wheel_diameter / 20.0;  // acumulada en cm
+
+      // Calcular velocidad angular (rad/s)
+      omega = (2.0 * (velocity / 3.6)) / W;  // Convertimos velocity a m/s
+
+      // Calcular ángulo girado (en radianes)
+      angulo_girado += omega * dt;
+    } else {
+      velocity = 0;
+      omega = 0;
+    }
+
+    // Mover motores (giro en el lugar)
+    analogWrite(3, 0);
+    analogWrite(5, 150);
+    analogWrite(10, 0);
+    analogWrite(11, 150);
+
+    // Serial print en radianes
+    Serial.print("Tiempo: ");
+    Serial.print(millis() / 1000);
+    Serial.print("s | N: ");
+    Serial.print(N, DEC);
+    Serial.print(" | Pulsos: ");
+    Serial.print(n, DEC);
+    Serial.print(" | Velocidad: ");
+    Serial.print(velocity, 2);
+    Serial.print(" km/h | Omega: ");
+    Serial.print(omega, 4);
+    Serial.print(" rad/s | Ángulo girado: ");
+    Serial.println(angulo_girado, 4); // en radianes
+
+    // Detener tras alcanzar PI/2 radianes (90°)
+    if (angulo_girado >= target_angulo) {
+      Serial.println("¡Se alcanzó el giro de π/2 radianes! Deteniendo motores...");
+      analogWrite(3, 0);
+      analogWrite(5, 0);
+      analogWrite(10, 0);
+      analogWrite(11, 0);
+      delay(1000);
+
+      // Reiniciar si se desea volver a iniciar después de detenerse
+      distancia = 0;
+      angulo_girado = 0;
+      n = 0;
+    }
+
+    timeold = millis();
+    n = 0;
+    attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(encoder_pin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);
+
+  // Pines de motor como salida
+  pinMode(3, OUTPUT);
+  pinMode(5, OUTPUT);
+  pinMode(10, OUTPUT);
+  pinMode(11, OUTPUT);
+
+  timeold = millis();  // Inicializar temporizador
+}
+
+void loop() {
+  angulo_radianes();  // Llamar a la función de giro
+}
