@@ -1,0 +1,162 @@
+// --- Pines ---
+#define encoder_pin 2
+int IN1 = 11;
+int IN2 = 10;
+int IN3 = 3;  // PWM
+int IN4 = 5;  // PWM
+
+// --- Variables globales ---
+volatile byte n = 0;                    // Pulsos del encoder
+unsigned long timeold = 0;             // Marca de tiempo anterior
+unsigned int S = 20;                   // Pulsos por vuelta del encoder
+const int wheel_diameter = 64;         // Diámetro de la rueda en mm
+float W = 0.1282;                       // Ancho entre ruedas en metros (¡ya convertido!)
+float velocity = 0;                    // Velocidad lineal en km/h
+float omega = 0;                       // Velocidad angular en rad/s
+float angulo_girado = 0;               // Ángulo girado acumulado en radianes
+float distancia = 0;                   // Distancia recorrida en cm
+unsigned int N = 0;                    // Revoluciones por minuto
+unsigned long total_pulsos = 0;        // Pulsos totales
+float dt = 1.0;                         // Intervalo de integración en segundos
+
+// --- Debounce ---
+unsigned long last_interrupt_time = 0;
+unsigned long debounce_delay = 1; // 1 ms
+
+// --- Interrupción del encoder ---
+void counter() {
+  unsigned long interrupt_time = millis();
+  if (interrupt_time - last_interrupt_time > debounce_delay) {
+    n++;
+    total_pulsos++;
+    last_interrupt_time = interrupt_time;
+  }
+}
+
+// --- Función para girar hasta cierto ángulo (en radianes) ---
+void girarHasta(float angulo_objetivo) {
+  if (millis() - timeold >= 1000) {
+    detachInterrupt(digitalPinToInterrupt(encoder_pin));
+
+    if (n > 0) {
+      N = (n * 60) / ((millis() - timeold) / 1000 * S);
+      velocity = N * 3.1416 * wheel_diameter * 60 / 1000000 * 3.6;
+      distancia += n * 3.1416 * wheel_diameter / 20.0;
+
+      omega = (2.0 * (velocity / 3.6)) / W; // velocity convertido a m/s
+      angulo_girado += omega * dt;
+    } else {
+      velocity = 0;
+      omega = 0;
+    }
+
+    // Giro sobre su eje
+    analogWrite(IN3, 0);
+    analogWrite(IN4, 150);
+    analogWrite(IN2, 0);
+    analogWrite(IN1, 150);
+
+    // Imprimir valores
+    Serial.print("Tiempo (s): ");
+    Serial.print(millis() / 1000);
+    Serial.print(" | RPM: ");
+    Serial.print(N);
+    Serial.print(" | Pulsos: ");
+    Serial.print(n);
+    Serial.print(" | Velocidad: ");
+    Serial.print(velocity, 2);
+    Serial.print(" km/h | Omega: ");
+    Serial.print(omega, 4);
+    Serial.print(" rad/s | Ángulo: ");
+    Serial.println(angulo_girado, 4);
+
+    if (angulo_girado >= angulo_objetivo) {
+      Serial.println("¡Se alcanzó el ángulo objetivo! Deteniendo motores...");
+      analogWrite(IN1, 0);
+      analogWrite(IN2, 0);
+      analogWrite(IN3, 0);
+      analogWrite(IN4, 0);
+      delay(1000);
+      angulo_girado = 0;
+      distancia = 0;
+      n = 0;
+    }
+
+    timeold = millis();
+    n = 0;
+    attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);
+  }
+}
+
+// --- Función para recorrer cierta distancia (en cm) ---
+void Distancia(float distanciatotal) {
+  if (millis() - timeold >= 1000) {
+    detachInterrupt(digitalPinToInterrupt(encoder_pin));
+
+    float tiempo_segundos = (millis() - timeold) / 1000.0;
+
+    if (n > 0 && tiempo_segundos > 0 && S > 0) {
+      N = (n * 60.0) / (tiempo_segundos * S);
+      velocity = N * 3.1416 * wheel_diameter * 60.0 / 1000000.0 * 3.6;
+      distancia += (n * 3.1416 * wheel_diameter) / 20.0;
+    } else {
+      velocity = 0;
+    }
+
+    analogWrite(IN3, 150);
+    analogWrite(IN4, 0);
+    analogWrite(IN2, 0);
+    analogWrite(IN1, 150);
+
+    Serial.print("Tiempo (s): ");
+    Serial.print(millis() / 1000);
+    Serial.print(" | RPM: ");
+    Serial.print(N);
+    Serial.print(" | Pulsos: ");
+    Serial.print(n);
+    Serial.print(" | Velocidad: ");
+    Serial.print(velocity, 2);
+    Serial.print(" km/h | Distancia: ");
+    Serial.println(distancia, 2);
+
+    if (distancia >= distanciatotal) {
+      Serial.println("¡Se alcanzó la distancia objetivo! Deteniendo motores...");
+      analogWrite(IN1, 0);
+      analogWrite(IN2, 0);
+      analogWrite(IN3, 0);
+      analogWrite(IN4, 0);
+      delay(1000);
+      distancia = 0;
+      n = 0;
+    }
+
+    timeold = millis();
+    n = 0;
+    attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);
+  }
+}
+
+// --- Configuración inicial ---
+void setup() {
+  Serial.begin(9600);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(encoder_pin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(encoder_pin), counter, RISING);
+
+  n = 0;
+  N = 0;
+  timeold = millis();
+  distancia = 0;
+  total_pulsos = 0;
+
+  Serial.println("Tiempo | RPM | Pulsos | Velocidad | Omega | Ángulo");
+}
+
+// --- Loop principal ---
+void loop() {
+  Distancia(1000);         // Recorre 10 metros (1000 cm)
+  girarHasta(3.1416);      // Gira 180 grados (pi radianes)
+}
